@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { TextField, Button, Container, Typography, Box } from '@mui/material';
 
@@ -6,11 +6,8 @@ function AccountPage() {
   const [userData, setUserData] = useState({ username: '', password: '' });
   const [newPassword, setNewPassword] = useState('');
 
-  useEffect(() => {
-    fetchUserData();
-  }, []);
-
-  const fetchUserData = () => {
+  // Wrap fetchUserData with useCallback
+  const fetchUserData = useCallback(() => {
     axios
       .get('http://localhost:8000/api/user/', {
         headers: {
@@ -18,12 +15,19 @@ function AccountPage() {
         },
       })
       .then((response) => {
-        setUserData({ ...userData, username: response.data.username });
+        setUserData((prevData) => ({
+          ...prevData,
+          username: response.data.username,
+        }));
       })
       .catch((error) => {
         console.error('Error fetching user data', error);
       });
-  };
+  }, []); // Empty dependency array since no dependencies are used inside
+
+  useEffect(() => {
+    fetchUserData();
+  }, [fetchUserData]); // Include fetchUserData in the dependency array
 
   const handleUpdate = () => {
     const data = {};
@@ -58,7 +62,12 @@ function AccountPage() {
           fullWidth
           margin="normal"
           value={userData.username}
-          onChange={(e) => setUserData({ ...userData, username: e.target.value })}
+          onChange={(e) =>
+            setUserData((prevData) => ({
+              ...prevData,
+              username: e.target.value,
+            }))
+          }
         />
         <TextField
           label="New Password"
