@@ -1,6 +1,6 @@
 // frontend/src/components/NavigationPage.js
 
-import React, { useEffect, useState, useRef, useCallback } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import axios from 'axios';
 import { useParams } from 'react-router-dom';
 import {
@@ -12,6 +12,7 @@ import {
 import {
   Box,
   Typography,
+  Paper,
   List,
   ListItem,
   ListItemText,
@@ -43,8 +44,33 @@ function NavigationPage() {
     libraries: ['places', 'geometry'],
   });
 
-  // Wrap fetchClassInfo with useCallback
-  const fetchClassInfo = useCallback(() => {
+  useEffect(() => {
+    fetchClassInfo();
+    return () => {
+      if (watchId) {
+        navigator.geolocation.clearWatch(watchId);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isLoaded && classInfo) {
+      getUserLocation();
+      setDestination({
+        lat: classInfo.classroom.latitude,
+        lng: classInfo.classroom.longitude,
+      });
+    }
+  }, [isLoaded, classInfo]);
+
+  useEffect(() => {
+    if (userLocation && destination && isLoaded) {
+      calculateRoute(userLocation, destination);
+      checkArrival();
+    }
+  }, [userLocation, destination, isLoaded]);
+
+  const fetchClassInfo = () => {
     axios
       .get(`http://localhost:8000/api/schedules/${classId}/`, {
         headers: {
@@ -57,10 +83,9 @@ function NavigationPage() {
       .catch((error) => {
         console.error('Error fetching class info', error);
       });
-  }, [classId]);
+  };
 
-  // Wrap getUserLocation with useCallback
-  const getUserLocation = useCallback(() => {
+  const getUserLocation = () => {
     if (navigator.geolocation) {
       const id = navigator.geolocation.watchPosition(
         (position) => {
@@ -68,7 +93,7 @@ function NavigationPage() {
             lat: position.coords.latitude,
             lng: position.coords.longitude,
           };
-          setPreviousLocation((prev) => userLocation);
+          setPreviousLocation(userLocation);
           setUserLocation(newLocation);
         },
         (error) => {
@@ -85,10 +110,63 @@ function NavigationPage() {
     } else {
       alert('Geolocation is not supported by this browser.');
     }
-  }, [userLocation]);
+  };
 
-  // Wrap checkArrival with useCallback
-  const checkArrival = useCallback(() => {
+  const calculateRoute = (origin, destination) => {
+    if (window.google && window.google.maps) {
+      const directionsService = new window.google.maps.DirectionsService();
+      directionsService.route(
+        {
+          origin: origin,
+          destination: destination,
+          travelMode: window.google.maps.TravelMode.WALKING,
+        },
+        (result, status) => {
+          if (status === window.google.maps.DirectionsStatus.OK) {
+            setDirectionsResponse(result);
+
+            // Extract turn markers
+            const markers = [];
+            const stepsData = [];
+            const steps = result.routes[0].legs[0].steps;
+
+            steps.forEach((step) => {
+              // Add steps for written directions
+              stepsData.push(step);
+
+              if (step.maneuver && step.maneuver.includes('turn')) {
+                const rotation = window.google.maps.geometry.spherical.computeHeading(
+                  step.start_location,
+                  step.end_location
+                );
+
+                const marker = {
+                  position: step.start_location,
+                  icon: {
+                    path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
+                    scale: 4,
+                    strokeColor: '#0000FF',
+                    rotation: rotation,
+                  },
+                };
+                markers.push(marker);
+              }
+            });
+
+            setTurnMarkers(markers);
+            setSteps(stepsData); // Set steps for written directions
+          } else {
+            console.error(`Error fetching directions ${result}`);
+            alert('Could not calculate route. Please try again.');
+          }
+        }
+      );
+    } else {
+      console.error('Google Maps API is not loaded yet.');
+    }
+  };
+
+  const checkArrival = () => {
     if (userLocation && destination) {
       const distance = getDistanceFromLatLonInMeters(
         userLocation.lat,
@@ -104,75 +182,30 @@ function NavigationPage() {
         }
       }
     }
-  }, [userLocation, destination, watchId]);
+  };
 
-  // Wrap calculateRoute with useCallback
-  const calculateRoute = useCallback(
-    (origin, destination) => {
-      if (window.google && window.google.maps) {
-        const directionsService = new window.google.maps.DirectionsService();
-        directionsService.route(
-          {
-            origin: origin,
-            destination: destination,
-            travelMode: window.google.maps.TravelMode.WALKING,
-          },
-          (result, status) => {
-            if (status === window.google.maps.DirectionsStatus.OK) {
-              setDirectionsResponse(result);
+  const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
+    function deg2rad(deg) {
+      return (deg * Math.PI) / 180;
+    }
+    const R = 6371e3; // Earth's radius in meters
+    const dLat = deg2rad(lat2 - lat1);
+    const dLon = deg2rad(lon2 - lon1);
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(deg2rad(lat1)) *
+        Math.cos(deg2rad(lat2)) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    const distance = R * c;
+    return distance;
+  };
 
-              // Extract turn markers
-              const markers = [];
-              const stepsData = [];
-              const steps = result.routes[0].legs[0].steps;
-
-              steps.forEach((step) => {
-                // Add steps for written directions
-                stepsData.push(step);
-
-                if (step.maneuver && step.maneuver.includes('turn')) {
-                  const rotation =
-                    window.google.maps.geometry.spherical.computeHeading(
-                      step.start_location,
-                      step.end_location
-                    );
-
-                  const marker = {
-                    position: step.start_location,
-                    icon: {
-                      path: window.google.maps.SymbolPath.FORWARD_CLOSED_ARROW,
-                      scale: 4,
-                      strokeColor: '#0000FF',
-                      rotation: rotation,
-                    },
-                  };
-                  markers.push(marker);
-                }
-              });
-
-              setTurnMarkers(markers);
-              setSteps(stepsData); // Set steps for written directions
-            } else {
-              console.error(`Error fetching directions ${result}`);
-              alert('Could not calculate route. Please try again.');
-            }
-          }
-        );
-      } else {
-        console.error('Google Maps API is not loaded yet.');
-      }
-    },
-    [setDirectionsResponse]
-  );
-
-  // Wrap checkDeviation with useCallback
-  const checkDeviation = useCallback(() => {
+  const checkDeviation = () => {
     if (directionsResponse && userLocation) {
       const path = directionsResponse.routes[0].overview_path;
-      const location = new window.google.maps.LatLng(
-        userLocation.lat,
-        userLocation.lng
-      );
+      const location = new window.google.maps.LatLng(userLocation.lat, userLocation.lng);
       const isOnPath = window.google.maps.geometry.poly.isLocationOnEdge(
         location,
         path,
@@ -183,61 +216,13 @@ function NavigationPage() {
         calculateRoute(userLocation, destination);
       }
     }
-  }, [directionsResponse, userLocation, destination, calculateRoute]);
+  };
 
-  // useEffect to fetch class info
-  useEffect(() => {
-    fetchClassInfo();
-    return () => {
-      if (watchId) {
-        navigator.geolocation.clearWatch(watchId);
-      }
-    };
-  }, [fetchClassInfo, watchId]);
-
-  // useEffect to get user location and set destination
-  useEffect(() => {
-    if (isLoaded && classInfo) {
-      getUserLocation();
-      setDestination({
-        lat: classInfo.classroom.latitude,
-        lng: classInfo.classroom.longitude,
-      });
-    }
-  }, [isLoaded, classInfo, getUserLocation]);
-
-  // useEffect to calculate route and check arrival
-  useEffect(() => {
-    if (userLocation && destination && isLoaded) {
-      calculateRoute(userLocation, destination);
-      checkArrival();
-    }
-  }, [userLocation, destination, isLoaded, calculateRoute, checkArrival]);
-
-  // useEffect to check for route deviation
   useEffect(() => {
     if (userLocation && directionsResponse && isLoaded) {
       checkDeviation();
     }
-  }, [userLocation, directionsResponse, isLoaded, checkDeviation]);
-
-  // useEffect to update map position and heading
-  useEffect(() => {
-    if (mapRef.current && userLocation) {
-      mapRef.current.panTo(userLocation);
-
-      if (previousLocation) {
-        const heading = window.google.maps.geometry.spherical.computeHeading(
-          new window.google.maps.LatLng(
-            previousLocation.lat,
-            previousLocation.lng
-          ),
-          new window.google.maps.LatLng(userLocation.lat, userLocation.lng)
-        );
-        mapRef.current.setHeading(heading);
-      }
-    }
-  }, [userLocation, previousLocation]);
+  }, [userLocation]);
 
   const mapContainerStyle = {
     height: '100vh',
@@ -261,23 +246,19 @@ function NavigationPage() {
     mapInstance.setTilt(45);
   };
 
-  const getDistanceFromLatLonInMeters = (lat1, lon1, lat2, lon2) => {
-    function deg2rad(deg) {
-      return (deg * Math.PI) / 180;
+  useEffect(() => {
+    if (mapRef.current && userLocation) {
+      mapRef.current.panTo(userLocation);
+
+      if (previousLocation) {
+        const heading = window.google.maps.geometry.spherical.computeHeading(
+          new window.google.maps.LatLng(previousLocation.lat, previousLocation.lng),
+          new window.google.maps.LatLng(userLocation.lat, userLocation.lng)
+        );
+        mapRef.current.setHeading(heading);
+      }
     }
-    const R = 6371e3; // Earth's radius in meters
-    const dLat = deg2rad(lat2 - lat1);
-    const dLon = deg2rad(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(deg2rad(lat1)) *
-        Math.cos(deg2rad(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    const distance = R * c;
-    return distance;
-  };
+  }, [userLocation]);
 
   if (loadError) {
     return <div>Error loading maps</div>;
@@ -339,8 +320,7 @@ function NavigationPage() {
             }}
           >
             <Typography variant="h6" sx={{ color: 'white' }}>
-              Directions
-            </Typography>
+            Directions</Typography>
             <List>
               {steps.map((step, index) => (
                 <ListItem key={index}>
