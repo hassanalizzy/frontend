@@ -40,7 +40,7 @@ function RegisterPage() {
   return (
     <Box
       sx={{
-        minHeight: '100vh',
+        minHeight: '95.2vh',
         backgroundImage: `url(${backgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
@@ -66,7 +66,7 @@ function RegisterPage() {
         <Card elevation={3}>
           <CardContent sx={{ textAlign: 'center' }}>
             {/* Logo */}
-            <img src={logo} alt="Logo" style={{ width: '150px', marginBottom: '20px' }} />
+            <img src={logo} alt="Logo" style={{ width: '450px', marginBottom: '80px' }} />
             <Typography variant="h4" gutterBottom sx={{ color: '#000000' }}>
               Register
             </Typography>

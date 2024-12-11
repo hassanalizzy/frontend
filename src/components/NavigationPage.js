@@ -35,7 +35,7 @@ function NavigationPage() {
   const [watchId, setWatchId] = useState(null);
   const [turnMarkers, setTurnMarkers] = useState([]);
   const [steps, setSteps] = useState([]);
-  const [mapType, setMapType] = useState('roadmap');
+  const [mapType, setMapType] = useState('satellite');
   const mapRef = useRef(null);
   const GOOGLE_MAPS_API_KEY = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
 
@@ -175,7 +175,7 @@ function NavigationPage() {
         destination.lng
       );
 
-      if (distance <= 50) {
+      if (distance <= 20) {
         setHasArrived(true);
         if (watchId) {
           navigator.geolocation.clearWatch(watchId);
@@ -225,7 +225,7 @@ function NavigationPage() {
   }, [userLocation]);
 
   const mapContainerStyle = {
-    height: '100vh',
+    height: '90vh',
     width: '100%',
   };
 

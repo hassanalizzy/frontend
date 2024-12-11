@@ -42,7 +42,7 @@ function Header() {
 
   const menuItems = isLoggedIn
     ? [
-        { text: 'Schedule', icon: <ScheduleIcon />, path: '/schedule' },
+        { text: 'Home', icon: <ScheduleIcon />, path: '/schedule' },
         { text: 'Account', icon: <AccountCircleIcon />, path: '/account' },
         { text: 'Logout', icon: <LogoutIcon />, action: handleLogout },
       ]
@@ -51,7 +51,7 @@ function Header() {
   const drawer = (
     <Box onClick={handleDrawerToggle} sx={{ textAlign: 'center' }}>
       <Typography variant="h6" sx={{ my: 2 }}>
-        Campus Navigator
+        CSUN Navigator
       </Typography>
       <Divider />
       <List>
@@ -76,7 +76,7 @@ function Header() {
       <Toolbar>
         <SchoolIcon sx={{ mr: 1 }} />
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
-          Campus Navigator
+          CSUN Navigator
         </Typography>
 
         {isMobile ? (
